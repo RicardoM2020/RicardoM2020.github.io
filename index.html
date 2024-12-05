@@ -1,9 +1,266 @@
-<!doctype html>
-<html>
-  <head>
-    <title>This is the title of the webpage!</title>
-  </head>
-  <body>
-    <p>This is an example paragraph. Anything in the <strong>body</strong> tag will appear on the page, just like this <strong>p</strong> tag and its contents.</p>
-  </body>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Simulador de Financiamento</title>
+<style>
+  body {
+    font-family: sans-serif;
+    margin: 20px;
+  }
+  h1, h2, h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+  .form-section, .result-section {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+  .form-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .form-row label {
+    width: 150px;
+    font-size: 14px;
+    margin-right: 10px;
+    line-height: 28px;
+  }
+  .form-row input, .form-row select {
+    flex: 1;
+    padding: 5px;
+    font-size: 14px;
+  }
+  button {
+    background: #0069ed;
+    color: #fff;
+    padding: 10px 15px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  button:hover {
+    background: #0052b5;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  table th, table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+  }
+  table th {
+    background: #eee;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+  <h1>Parâmetros de Financiamento</h1>
+  <div class="form-section">
+    <div class="form-row">
+      <label for="valor">Valor do empréstimo (R$)</label>
+      <input type="text" id="valor" placeholder="Ex: 30000,00" value="30000,00">
+    </div>
+    <div class="form-row">
+      <label for="dataInicio">Data de início</label>
+      <input type="text" id="dataInicio" placeholder="Ex: dezembro de 2024" value="dezembro de 2024">
+    </div>
+    <div class="form-row">
+      <label for="sistema">Sistema de amortização</label>
+      <select id="sistema">
+        <option value="Price" selected>Price - parcelas fixas</option>
+        <!-- Poderiam ser adicionados outros sistemas se necessário -->
+      </select>
+    </div>
+    <div class="form-row">
+      <label for="taxa">Taxa de juros (%)</label>
+      <input type="text" id="taxa" placeholder="Ex: 5,00%" value="5,00%">
+    </div>
+    <div class="form-row">
+      <label for="tipoJuros">Juros</label>
+      <select id="tipoJuros">
+        <option value="Anual">Anual (a.a)</option>
+        <option value="Mensal">Mensal (a.m)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label for="parcelas">Quantidade de parcelas</label>
+      <input type="number" id="parcelas" value="18">
+    </div>
+    <button id="simular">Simular</button>
+  </div>
+
+  <div class="result-section" style="display:none;">
+    <h2>Resultado resumo</h2>
+    <h3>Sem antecipação de pagamento</h3>
+    <table>
+      <tbody>
+        <tr>
+          <th>Valor financiado</th>
+          <td id="resValorFinanciado"></td>
+        </tr>
+        <tr>
+          <th>Total a ser pago</th>
+          <td id="resTotalPago"></td>
+        </tr>
+        <tr>
+          <th>Total amortizado</th>
+          <td id="resTotalAmortizado"></td>
+        </tr>
+        <tr>
+          <th>Total de juros</th>
+          <td id="resTotalJuros"></td>
+        </tr>
+        <tr>
+          <th>Total de taxas/seguros</th>
+          <td id="resTotalTaxas"></td>
+        </tr>
+        <tr>
+          <th>Correção</th>
+          <td id="resCorrecao"></td>
+        </tr>
+        <tr>
+          <th>Taxa de juros</th>
+          <td id="resTaxaJuros"></td>
+        </tr>
+        <tr>
+          <th>Quantidade de parcelas</th>
+          <td id="resQtdParcelas"></td>
+        </tr>
+        <tr>
+          <th>Valor da primeira parcela</th>
+          <td id="resPrimeiraParcela"></td>
+        </tr>
+        <tr>
+          <th>Valor da última parcela</th>
+          <td id="resUltimaParcela"></td>
+        </tr>
+        <tr>
+          <th>Data da última parcela</th>
+          <td id="resDataUltima"></td>
+        </tr>
+        <tr>
+          <th>Sistema de amortização</th>
+          <td id="resSistema"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+<script>
+// Função para converter string tipo "30000,00" em número float
+function parseValor(str) {
+  return parseFloat(str.replace(/\./g,'').replace(',', '.'));
+}
+
+// Função para formatar número em formato R$ x.xxx,xx
+function formatCurrency(num) {
+  return num.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+}
+
+// Função para adicionar meses a uma data (vamos assumir que dataInicio será algo simples, tipo "dezembro de 2024")
+// Esta função tentará parsear algo no formato "<mês> de <ano>"
+function calcularDataUltimaParcela(dataStr, nParcelas) {
+  const meses = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  let [mesStr, anoStr] = dataStr.toLowerCase().split(" de ").map(s => s.trim());
+  let mesIndex = meses.indexOf(mesStr);
+  if (mesIndex === -1) {
+    // caso não encontre, assume dezembro de 2024 como default
+    mesIndex = 11;
+    anoStr = "2024";
+  }
+  let ano = parseInt(anoStr,10);
+
+  // Se assume que o primeiro pagamento é um mês após a data de início?
+  // Isso não está claro, mas vamos assumir que a "data de início" já é a data do primeiro pagamento.
+  // Caso contrário, poderíamos adicionar +1 mês. Ajuste conforme a necessidade.
+  mesIndex += (nParcelas - 1); 
+  while (mesIndex > 11) {
+    mesIndex -= 12;
+    ano += 1;
+  }
+
+  return meses[mesIndex].charAt(0).toUpperCase() + meses[mesIndex].slice(1) + " de " + ano;
+}
+
+document.getElementById('simular').addEventListener('click', function() {
+  // Obtém valores do formulário
+  const valorRaw = document.getElementById('valor').value || "30000,00";
+  const valor = parseValor(valorRaw);
+  const dataInicio = document.getElementById('dataInicio').value || "dezembro de 2024";
+  const sistema = document.getElementById('sistema').value;
+  const taxaRaw = document.getElementById('taxa').value.replace('%','').replace(',','.') || "5.00";
+  const tipoJuros = document.getElementById('tipoJuros').value;
+  const parcelas = parseInt(document.getElementById('parcelas').value,10) || 18;
+
+  // Conversão da taxa:
+  let taxaAnual = 0;
+  let taxaMensal = 0;
+  if (tipoJuros === "Anual") {
+    taxaAnual = parseFloat(taxaRaw);
+    // Supondo juros simples convertendo: taxa mensal = taxa anual/12
+    // Para maior precisão financeira, pode-se considerar juros compostos mensais a partir da taxa anual:
+    // i_m = (1 + i_a)^(1/12)-1, mas aqui vamos simplificar usando i_a/12.
+    taxaMensal = (taxaAnual / 100) / 12;
+  } else {
+    // Juros informado já é mensal
+    taxaMensal = parseFloat(taxaRaw)/100;
+    taxaAnual = (Math.pow(1+taxaMensal,12)-1)*100;
+  }
+
+  // Cálculo do sistema Price
+  // Fórmula da Parcela fixa (PMT) = P * [i / (1 - (1+i)^(-n))]
+  // P = valor principal, i = taxaMensal, n = número de parcelas
+  const i = taxaMensal;
+  const n = parcelas;
+  const P = valor;
+
+  const parcelaFixa = P * (i / (1 - Math.pow(1+i, -n)));
+
+  // Agora vamos calcular o total pago, total de juros, etc. simulando o fluxo
+  let saldo = P;
+  let totalPago = 0;
+  let totalJuros = 0;
+  let totalAmortizado = 0;
+
+  for (let k = 1; k <= n; k++) {
+    const jurosMes = saldo * i;
+    const amortizacao = parcelaFixa - jurosMes;
+    saldo -= amortizacao;
+    totalPago += parcelaFixa;
+    totalJuros += jurosMes;
+    totalAmortizado += amortizacao;
+  }
+
+  // Formatações
+  const primeiraParcela = parcelaFixa;
+  const ultimaParcela = parcelaFixa;
+  const dataUltima = calcularDataUltimaParcela(dataInicio, n);
+
+  // Preenche a tabela de resultados
+  document.getElementById('resValorFinanciado').textContent = formatCurrency(P);
+  document.getElementById('resTotalPago').textContent = formatCurrency(totalPago);
+  document.getElementById('resTotalAmortizado').textContent = formatCurrency(totalAmortizado);
+  document.getElementById('resTotalJuros').textContent = formatCurrency(totalJuros);
+  document.getElementById('resTotalTaxas').textContent = formatCurrency(0); // Sem taxas adicionais
+  document.getElementById('resCorrecao').textContent = formatCurrency(0); // Sem correção
+  document.getElementById('resTaxaJuros').textContent = taxaAnual.toFixed(3) + " % (a.a)";
+  document.getElementById('resQtdParcelas').textContent = n;
+  document.getElementById('resPrimeiraParcela').textContent = formatCurrency(primeiraParcela);
+  document.getElementById('resUltimaParcela').textContent = formatCurrency(ultimaParcela);
+  document.getElementById('resDataUltima').textContent = dataUltima;
+  document.getElementById('resSistema').textContent = sistema;
+
+  // Mostra a seção de resultados
+  document.querySelector('.result-section').style.display = 'block';
+});
+</script>
+</body>
 </html>
